@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Badger Blitz — Gait Lab</title>
+<style>
+  :root {
+    --night: #0a1019; --panel: rgba(13,19,30,0.9); --brass: #e8c069;
+    --edge: rgba(232,192,105,0.22); --ink: #d6dde9; --dim: #7f8da3;
+    --good: #6fd18a; --warn: #e8c069; --alarm: #e0674a;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--night); color: var(--ink); font-family: var(--sans);
+         display: grid; grid-template-rows: auto minmax(0,1fr) auto; overflow: hidden; }
+
+  header { padding: 12px 18px 10px; border-bottom: 1px solid rgba(232,192,105,0.14); }
+  h1 { margin: 0; font-size: 13px; font-weight: 650; letter-spacing: .14em;
+       text-transform: uppercase; color: var(--brass); }
+  .sub { margin-top: 3px; color: var(--dim); font-size: 13px; max-width: 78ch; }
+
+  #stage { position: relative; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  .card { position: absolute; background: var(--panel); border: 1px solid var(--edge);
+          border-radius: 8px; padding: 12px 13px; backdrop-filter: blur(4px); z-index: 5; }
+  .card h2 { margin: 0 0 9px; font-size: 10.5px; font-weight: 650; letter-spacing: .16em;
+             text-transform: uppercase; color: var(--brass); }
+  #readout { left: 14px; top: 14px; width: 236px; }
+  #controls { right: 14px; top: 14px; width: 244px; }
+  #strip-wrap { left: 14px; bottom: 14px; width: 340px; }
+
+  .row { display: flex; justify-content: space-between; gap: 10px; margin: 5px 0; font-size: 12.5px; }
+  .lbl { color: var(--dim); }
+  .val { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .val.good { color: var(--good); } .val.warn { color: var(--warn); } .val.alarm { color: var(--alarm); }
+
+  .btns { display: flex; gap: 5px; flex-wrap: wrap; margin: 4px 0 11px; }
+  .btns button { font: 500 11.5px/1 var(--sans); color: var(--ink); cursor: pointer;
+    background: rgba(22,30,44,0.9); border: 1px solid var(--edge);
+    padding: 6px 9px; border-radius: 5px; }
+  .btns button:hover { border-color: rgba(232,192,105,0.6); color: #fff; }
+  .btns button:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+  .btns button.active { background: var(--brass); color: #10151f; border-color: var(--brass); font-weight: 650; }
+
+  .field { margin-bottom: 11px; }
+  .field > span { display: flex; justify-content: space-between; font-size: 11.5px;
+                  color: var(--dim); margin-bottom: 4px; }
+  .field output { font-family: var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--brass); }
+  label.chk { display: flex; align-items: center; gap: 8px; margin-top: 7px;
+              font-size: 12.5px; cursor: pointer; }
+  label.chk input { accent-color: var(--brass); }
+
+  #strip { width: 100%; height: 92px; display: block; }
+  .stripnote { color: var(--dim); font-size: 11.5px; margin-top: 6px; }
+
+  footer { padding: 10px 18px 12px; border-top: 1px solid rgba(232,192,105,0.14);
+           color: var(--dim); font-size: 12.5px; max-width: 108ch; }
+  footer b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Badger Blitz — Gait Lab</h1>
+  <div class="sub">Two-bone legs, scripted joint angles, no IK solver. Stance is linear because the foot is planted; all the easing lives in the swing.</div>
+</header>
+
+<div id="stage">
+  <canvas id="view"></canvas>
+
+  <div class="card" id="readout">
+    <h2>Gait</h2>
+    <div class="row"><span class="lbl">Pattern</span><span class="val" id="v-gait">—</span></div>
+    <div class="row"><span class="lbl">Speed</span><span class="val" id="v-speed">—</span></div>
+    <div class="row"><span class="lbl">Stride rate</span><span class="val" id="v-freq">—</span></div>
+    <div class="row"><span class="lbl">Duty factor</span><span class="val" id="v-duty">—</span></div>
+    <div class="row"><span class="lbl">Foot slip</span><span class="val good" id="v-slip">—</span></div>
+    <div class="row"><span class="lbl">FPS</span><span class="val" id="v-fps">—</span></div>
+  </div>
+
+  <div class="card" id="controls">
+    <h2>Controls</h2>
+    <div class="field">
+      <span>Speed <output id="speed-out">1.4</output></span>
+      <input type="range" id="speed" min="0" max="5" step="0.05" value="1.4">
+    </div>
+    <div class="field">
+      <span>Time scale <output id="ts-out">1.00×</output></span>
+      <input type="range" id="timescale" min="0.1" max="1" step="0.05" value="1">
+    </div>
+    <div class="lbl" style="font-size:11.5px">Gait</div>
+    <div class="btns" id="gaitBtns">
+      <button data-v="auto" class="active">Auto</button>
+      <button data-v="amble">Amble</button>
+      <button data-v="walk">Walk</button>
+      <button data-v="trot">Trot</button>
+    </div>
+    <div class="lbl" style="font-size:11.5px">Camera</div>
+    <div class="btns" id="camBtns">
+      <button data-v="follow" class="active">Follow</button>
+      <button data-v="side">Side</button>
+      <button data-v="game">Game</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="sneak"> Sneaking</label>
+    <label class="chk"><input type="checkbox" id="dig"> Digging</label>
+    <label class="chk"><input type="checkbox" id="sil"> Silhouette only</label>
+    <label class="chk"><input type="checkbox" id="stripToggle" checked> Show phase strip</label>
+  </div>
+
+  <div class="card" id="strip-wrap">
+    <h2>Footfall pattern</h2>
+    <canvas id="strip"></canvas>
+    <div class="stripnote">Solid = stance (planted), hollow = swing (airborne). The gap between them is the duty factor.</div>
+  </div>
+</div>
+
+<footer>
+  <b>What to look for:</b> drop time scale to ~0.2× and watch a single leg. The paw should sit dead still through the solid bar, then flick forward through the hollow one — not swing evenly like a pendulum. <b>Foot slip</b> should stay under a few percent at any speed; if it climbs, stride rate has drifted out of step with speed. Try <b>Silhouette only</b> on the <b>Game</b> camera to check the gait still reads once the face stripes are gone.
+</footer>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>

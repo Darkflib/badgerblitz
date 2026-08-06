@@ -4,7 +4,7 @@
 // or a billboard sprite card). The sprite card is the "HD-2D" middle ground — 2D art
 // in a 3D lit scene — which is the option closest to the concept art's pipeline.
 
-import * as THREE from './vendor/three.module.min.js';
+import * as THREE from '../vendor/three.module.min.js';
 import { BOXES, GROUND, LIGHTS, COLORS, WORLD, CAT } from './scene.js';
 
 const HEX = (h) => new THREE.Color(h);

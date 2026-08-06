@@ -143,6 +143,14 @@ silhouette, so **the gait has to read in silhouette alone**. That rules out anim
 depends on surface detail and puts the weight on the body's rocking amble and the leg
 timing — which is convenient, because those are the parts a procedural rig does well.
 
+**Update: the rigging risk is now largely retired.** `proto/badger-gait/` implements the
+walk cycle procedurally — two-bone legs, scripted joint angles, no IK solver and no
+authored animation clips. Amble, walk, trot, sneak and dig all come out of one rig
+parameterised by speed. Since there is nothing to rig by hand and nothing to key, the
+largest single asset cost in the 3D route mostly evaporates: what remains is modelling one
+badger, and the placeholder in the lab already reads correctly in silhouette at game camera
+distance. See `proto/badger-gait/README.md` for the method.
+
 ## Open
 
 - Re-measure framerate on real hardware, including a mid-range phone.

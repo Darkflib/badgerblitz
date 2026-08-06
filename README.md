@@ -25,6 +25,9 @@ Pre-production. Design only — no code yet.
 - [`proto/render-test`](proto/render-test) — one garden drawn five ways (top-down, 3/4,
   isometric, 3D orthographic, 3D perspective) from a single shared world definition.
   Real 2D shadow casting, a cat with a working vision cone, and a live sneak readout.
+- [`proto/badger-gait`](proto/badger-gait) — procedural walk cycle. Two-bone legs, no IK
+  solver, stride rate derived from speed so the feet never skate. Amble, walk and trot,
+  plus sneak and dig, with a footfall phase strip and a foot-slip meter.
 
 ## Concept art
 
