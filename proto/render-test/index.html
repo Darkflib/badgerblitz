@@ -41,6 +41,10 @@
   .lbl { color: #98a2b3; }
   .val { color: #e8e2d4; font-variant-numeric: tabular-nums; }
   .val.good { color: #6fd18a; } .val.alarm { color: #e0674a; font-weight: 700; }
+  .val.warn { color: #e8c069; }
+  label.chk { display: flex; align-items: center; gap: 7px; margin-top: 7px; cursor: pointer; }
+  label.chk input { accent-color: #e8c069; }
+  #legibility { margin-top: 9px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,0.10); }
   .track { height: 8px; background: rgba(255,255,255,0.10); border-radius: 4px; overflow: hidden; margin: 3px 0 8px; }
   .track > i { display: block; height: 100%; border-radius: 4px; transition: width .08s linear, background .2s; }
   #bar-light { background: #e8c069; }
@@ -80,6 +84,7 @@
     <div class="track"><i id="bar-light" style="width:0%"></i></div>
     <div class="row"><span class="lbl">Underfoot</span><span class="val" id="v-surface">grass</span></div>
     <div class="row"><span class="lbl">Security light</span><span class="val" id="v-pir">idle</span></div>
+    <div class="row"><span class="lbl">Line of sight</span><span class="val" id="v-occ">clear</span></div>
     <div class="row"><span class="lbl">Status</span><span class="val good" id="v-seen">unnoticed</span></div>
     <div class="row"><span class="lbl">FPS</span><span class="val" id="v-fps">—</span></div>
   </div>
@@ -89,9 +94,12 @@
     <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</div>
     <div style="margin-top:4px"><kbd>Shift</kbd> sneak — slower, much quieter</div>
     <div style="margin-top:7px; color:#98a2b3">Try the gravel path on the right, then the loose fence panel and the cat flap.</div>
-    <label class="chk" id="sprite-row" style="display:none">
-      <input type="checkbox" id="spriteToggle"> Badger as 2D sprite card
-    </label>
+    <div id="legibility" style="display:none">
+      <label class="chk"><input type="checkbox" id="silhouetteToggle"> Silhouette when occluded</label>
+      <label class="chk"><input type="checkbox" id="floorToggle"> Visibility floor in shadow</label>
+      <label class="chk"><input type="checkbox" id="textureToggle"> Texture hero objects</label>
+      <label class="chk"><input type="checkbox" id="spriteToggle"> Badger as 2D sprite card</label>
+    </div>
   </div>
 </div>
 

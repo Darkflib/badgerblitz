@@ -15,9 +15,10 @@ const MODES = {
 const state = {
   badger: { x: BADGER_START.x, y: BADGER_START.y, facing: -Math.PI / 2, vx: 0, vy: 0 },
   cat: { ...CAT },
-  sneaking: false, pirOn: false, pirTimer: 0, spotted: false,
-  spriteBadger: false, mode: 'threequarter',
+  sneaking: false, pirOn: false, pirTimer: 0, spotted: false, occluded: false,
+  spriteBadger: false, mode: 'ortho3d',
   illumination: 0, sneakScore: 1, surface: 0.1,
+  silhouette: true, visFloor: true, textures: true,
 };
 
 const keys = new Set();
@@ -103,10 +104,15 @@ function step(dt) {
 
 let last = performance.now(), fps = 0, acc = 0, frames = 0;
 function loop(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const elapsed = (now - last) / 1000;
+  const dt = Math.min(0.05, elapsed);        // clamped for the simulation only
   last = now;
-  acc += dt; frames++;
-  if (acc > 0.4) { fps = frames / acc; acc = 0; frames = 0; }
+
+  // Measure with real elapsed time, not the clamped dt. Accumulating dt here means the
+  // counter can never report below 1/0.05 = 20fps, which hides exactly the stalls you
+  // built a counter to find.
+  acc += elapsed; frames++;
+  if (acc > 0.5) { fps = frames / acc; acc = 0; frames = 0; }
 
   step(dt);
   const m = MODES[state.mode];
@@ -137,7 +143,10 @@ function updateHud(fps) {
   el('v-seen').className = state.spotted ? 'val alarm' : 'val good';
   el('v-fps').textContent = fps.toFixed(0);
   el('stagenote').textContent = MODES[state.mode].note;
-  el('sprite-row').style.display = MODES[state.mode].kind === '3d' ? '' : 'none';
+  const is3d = MODES[state.mode].kind === '3d';
+  el('legibility').style.display = is3d ? '' : 'none';
+  el('v-occ').textContent = state.occluded ? 'behind something' : 'clear';
+  el('v-occ').className = state.occluded ? 'val warn' : 'val';
 }
 
 // --- mode buttons -----------------------------------------------------------
@@ -153,6 +162,11 @@ for (const [key, m] of Object.entries(MODES)) {
   };
   bar.appendChild(b);
 }
-el('spriteToggle').onchange = e => { state.spriteBadger = e.target.checked; };
+for (const [id, key] of [['spriteToggle', 'spriteBadger'], ['silhouetteToggle', 'silhouette'],
+                         ['floorToggle', 'visFloor'], ['textureToggle', 'textures']]) {
+  const box = el(id);
+  box.checked = !!state[key];
+  box.onchange = e => { state[key] = e.target.checked; };
+}
 
 requestAnimationFrame(loop);

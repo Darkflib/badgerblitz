@@ -51,6 +51,7 @@ export class Renderer3D {
       this.scene.add(m);
     }
 
+    this.occluderMeshes = [];
     for (const b of BOXES) {
       const isGlass = b.kind === 'window';
       const mat = isGlass
@@ -63,7 +64,41 @@ export class Renderer3D {
       m.castShadow = !isGlass;
       m.receiveShadow = true;
       this.scene.add(m);
+      if (!isGlass) this.occluderMeshes.push(m);
     }
+
+    this.tart = this.makeHeroTart();
+    this.tart.position.set(5.8, 0.9, 2.1);              // on the kitchen counter
+    this.scene.add(this.tart);
+  }
+
+  // A textured hero object among untextured props. The whole point of the mixed approach:
+  // flat shading everywhere means the one textured thing reads instantly as *the loot*.
+  makeHeroTart() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const x = c.getContext('2d');
+    x.fillStyle = '#c99a5e'; x.beginPath(); x.arc(64, 64, 62, 0, 7); x.fill();   // pastry
+    x.fillStyle = '#f2e7d4'; x.beginPath(); x.arc(64, 64, 47, 0, 7); x.fill();   // icing
+    x.strokeStyle = '#b8834a'; x.lineWidth = 3;
+    x.beginPath(); x.arc(64, 64, 54, 0, 7); x.stroke();                          // crimped edge
+    x.fillStyle = '#a3243a'; x.beginPath(); x.arc(64, 64, 11, 0, 7); x.fill();   // glacé cherry
+    x.fillStyle = 'rgba(255,255,255,0.45)';
+    x.beginPath(); x.arc(60, 59, 3.5, 0, 7); x.fill();
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+
+    const side = new THREE.MeshStandardMaterial({ color: HEX('#c99a5e'), roughness: 0.85 });
+    const top = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7 });
+    const g = new THREE.Group();
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.16, 0.09, 20),
+                             [side, top, side]);        // side, top cap, bottom cap
+    m.position.y = 0.045;
+    m.castShadow = true; m.receiveShadow = true;
+    g.add(m);
+    this.tartTopMaterial = top;
+    this.tartTexture = tex;
+    return g;
   }
 
   buildLights() {
@@ -168,11 +203,38 @@ export class Renderer3D {
     return g;
   }
 
+  // A flat copy drawn with depth testing off, so it paints straight through walls.
+  // Only shown when the real thing is actually occluded — otherwise it would sit on top
+  // of a perfectly visible badger and look like a bug.
+  makeSilhouette(group, color) {
+    const s = group.clone(true);
+    s.traverse(o => {
+      if (!o.isMesh) return;
+      o.material = new THREE.MeshBasicMaterial({
+        color: HEX(color), depthTest: false, depthWrite: false,
+        transparent: true, opacity: 0.95,
+      });
+      o.castShadow = false; o.receiveShadow = false;
+      o.renderOrder = 999;
+    });
+    s.visible = false;
+    return s;
+  }
+
   buildActors() {
     this.badgerMesh = this.makeBadgerMesh();
     this.badgerSprite = this.makeBadgerSprite();
     this.badgerSprite.visible = false;
     this.scene.add(this.badgerMesh, this.badgerSprite);
+
+    // Materials that get an emissive lift when the badger is standing in the dark.
+    this.badgerMats = [];
+    this.badgerMesh.traverse(o => { if (o.isMesh) this.badgerMats.push(o.material); });
+
+    this.badgerGhost = this.makeSilhouette(this.badgerMesh, '#8fd8a8');
+    this.tartGhost = this.makeSilhouette(this.tart, '#e8c069');
+    this.scene.add(this.badgerGhost, this.tartGhost);
+    this.raycaster = new THREE.Raycaster();
 
     const cat = new THREE.Group();
     const fur = new THREE.MeshStandardMaterial({ color: HEX('#3a3238'), roughness: 0.9 });
@@ -210,6 +272,18 @@ export class Renderer3D {
     this.scene.add(this.cone);
   }
 
+  // Is anything between the camera and this point? The orthographic camera is repositioned
+  // relative to the badger every frame, so cam.position → target is exactly the view
+  // direction and this is accurate for both projections.
+  isOccluded(cam, x, y, z = 0.35) {
+    const target = new THREE.Vector3(x, z, y);
+    const dir = target.clone().sub(cam.position);
+    const dist = dir.length();
+    this.raycaster.set(cam.position, dir.normalize());
+    this.raycaster.far = dist - 0.35;
+    return this.raycaster.intersectObjects(this.occluderMeshes, false).length > 0;
+  }
+
   render(mode, state) {
     const useSprite = !!state.spriteBadger;
     this.badgerMesh.visible = !useSprite;
@@ -217,6 +291,24 @@ export class Renderer3D {
     const actor = useSprite ? this.badgerSprite : this.badgerMesh;
     actor.position.set(state.badger.x, 0, state.badger.y);
     actor.rotation.y = -state.badger.facing;
+
+    // Visibility floor: the darker it is, the more the badger self-lights. Keeps the
+    // character readable in shadow without lighting up the shadow itself, so "dark is
+    // safe" survives intact.
+    const floor = state.visFloor === false ? 0 : (1 - state.illumination);
+    for (const m of this.badgerMats) {
+      m.emissive.set('#7f96c4');
+      m.emissiveIntensity = 0.04 + floor * 0.30;
+    }
+
+    // Only touch needsUpdate on an actual change: setting it every frame forces a shader
+    // recompile every frame, which took this scene from 25fps to 2.
+    const wantTex = state.textures !== false;
+    if (wantTex !== this._texOn) {
+      this._texOn = wantTex;
+      this.tartTopMaterial.map = wantTex ? this.tartTexture : null;
+      this.tartTopMaterial.needsUpdate = true;
+    }
 
     this.cone.material.color.set(state.spotted ? '#ff6a4a' : '#ffe18c');
     this.cone.material.opacity = state.spotted ? 0.3 : 0.17;
@@ -246,6 +338,20 @@ export class Renderer3D {
       cam.lookAt(state.badger.x, 0.4, state.badger.y - 1.0);
       cam.updateProjectionMatrix();
     }
+
+    // Occlusion is always evaluated so the readout tells the truth; the toggle only
+    // controls whether the silhouette is drawn.
+    const badgerHidden = this.isOccluded(cam, state.badger.x, state.badger.y);
+    state.occluded = badgerHidden;
+
+    const ghosts = state.silhouette !== false;
+    this.badgerGhost.visible = ghosts && badgerHidden && !useSprite;
+    this.badgerGhost.position.copy(actor.position);
+    this.badgerGhost.rotation.y = actor.rotation.y;
+
+    this.tartGhost.visible = ghosts && this.isOccluded(cam, this.tart.position.x, this.tart.position.z, 1.0);
+    this.tartGhost.position.copy(this.tart.position);
+
     this.renderer.render(this.scene, cam);
   }
 }

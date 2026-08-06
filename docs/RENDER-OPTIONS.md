@@ -61,9 +61,46 @@ the collision segments took roughly 80 lines, and the same routine drives the li
 gotcha: box corners that touch exactly let rays slip through the seam and leak light in a
 spike. Growing each occluder by ~3cm fixes it.
 
-**8. No performance conclusion is available yet.** The prototype reports 20–25fps in every
-mode including pure-GPU 3D, which means the cap is headless software rendering, not the
-renderers. Needs re-measuring on real hardware before anyone treats it as data.
+**8. No performance conclusion is available yet — and the first reading was wrong.** The
+harness originally reported a suspiciously flat 20–25fps in every mode. That was the
+counter, not the renderer: it accumulated the *clamped* simulation `dt` (capped at 0.05s),
+so it could never report below 20fps no matter how slow the frame actually was. Measured
+honestly against real elapsed time, the headless software rasteriser gives 3–8fps across
+all five modes. That still says nothing about real hardware — but the counter now tells the
+truth, so a local run will give a real number. Worth remembering for the game proper:
+clamp `dt` for the simulation, never for the metrics.
+
+## Legibility (added after playtesting)
+
+Playtesting surfaced the real problem, which was not the projection at all: **the badger
+becomes hard to control when it is unlit or behind something.** Both are common — the game
+is about hiding in the dark behind sheds. Three fixes are now in the harness, each on its
+own toggle in the 3D modes.
+
+**Visibility floor.** The badger's material gains a cool emissive lift as the light on it
+drops, so it never sinks to pure black. Critically this lights the *badger*, not the
+ground it stands on, so "dark is safe" survives — you stay hidden while staying visible to
+yourself. This is what stealth games have always done to the player character.
+
+**Silhouette when occluded.** A raycast from camera to badger each frame decides whether
+anything is in the way; if so, a flat copy drawn with `depthTest: false` paints through the
+wall. Only when genuinely occluded — drawing it always would sit on top of a perfectly
+visible badger and read as a bug. The same treatment is applied to hero objects, so a tart
+you have spotted stays findable once you are behind the counter.
+
+**Textured hero objects.** Everything is flat-shaded except the Bakewell tart, which
+carries a texture. The contrast does the work: in a scene of untextured prisms, the one
+textured thing reads instantly as *the loot*. This is a good argument for going untextured
+by default rather than a compromise — texture becomes a signal rather than decoration.
+
+An open choice: the occluded silhouette is currently a solid fill, which reads well at
+small sizes but throws away the badger's shape. An outline-only treatment keeps more
+information and may suit hero objects better than it suits the player. Worth trying both.
+
+**A performance trap found while building this.** Assigning `material.needsUpdate = true`
+every frame — done naively to swap the hero texture — forces a shader recompile every
+frame and cost roughly 10× the framerate. Only flip it on an actual change. This will bite
+again the first time someone animates a material property.
 
 ## Where that leaves the decision
 
@@ -101,9 +138,16 @@ open and everything else follows. If it stalls, isometric 2D is a proven fallbac
 lighting already works, and `scene.js` is shared, so switching costs a renderer rather than
 a rewrite.
 
+Note that the legibility work constrains that brief: the badger is routinely seen as a flat
+silhouette, so **the gait has to read in silhouette alone**. That rules out animation that
+depends on surface detail and puts the weight on the body's rocking amble and the leg
+timing — which is convenient, because those are the parts a procedural rig does well.
+
 ## Open
 
 - Re-measure framerate on real hardware, including a mid-range phone.
-- Prototype wall-fade in orthographic 3D — how intrusive is it in motion?
+- Prototype wall-fade in orthographic 3D — how intrusive is it in motion? Fading the wall
+  and silhouetting the badger solve the same problem; find out whether you need both.
 - Decide camera pitch. Everything above assumed roughly 45°; shallower reads architecture
   better, steeper reads the ground plane and cones better.
+- Try outline-only vs solid-fill silhouettes.

@@ -76,7 +76,10 @@ export const COLORS = {
 // Axis-aligned solids only, so collision is a rectangle test.
 export function collides(x, y, radius) {
   for (const b of BOXES) {
-    if (b.kind === 'window') continue;              // you can't fit, but it doesn't block sight
+    // The window blocks you but not light. The door has a cat flap in it, so it blocks
+    // neither you nor sight-lines from inside — but it still casts shadow and still
+    // hides you from an outside camera, which is the point.
+    if (b.kind === 'window' || b.kind === 'door') continue;
     if (x + radius > b.x && x - radius < b.x + b.w &&
         y + radius > b.y && y - radius < b.y + b.h) return true;
   }
