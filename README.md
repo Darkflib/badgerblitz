@@ -18,6 +18,13 @@ Pre-production. Design only — no code yet.
 
 - [Game Design](docs/GAME-DESIGN.md) — the loop, the mechanics, the cast, the map
 - [Technical Plan](docs/TECH-PLAN.md) — stack, architecture, lighting, milestones
+- [Rendering Options](docs/RENDER-OPTIONS.md) — five approaches compared, and why
+
+## Prototypes
+
+- [`proto/render-test`](proto/render-test) — one garden drawn five ways (top-down, 3/4,
+  isometric, 3D orthographic, 3D perspective) from a single shared world definition.
+  Real 2D shadow casting, a cat with a working vision cone, and a live sneak readout.
 
 ## Concept art
 

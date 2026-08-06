@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Badger Blitz — Render Test</title>
+<style>
+  :root {
+    --ink: #e8e2d4; --dim: #98a2b3; --panel: rgba(14,18,28,0.88);
+    --edge: rgba(200,180,130,0.22); --warm: #e8c069; --good: #6fd18a; --bad: #e0674a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #070c16; color: #e8e2d4; overflow: hidden;
+    font: 14px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    display: grid; grid-template-rows: auto 1fr auto;
+  }
+  header { padding: 10px 16px 8px; border-bottom: 1px solid rgba(200,180,130,0.14); }
+  h1 { margin: 0 0 2px; font-size: 15px; letter-spacing: .06em; text-transform: uppercase; color: #e8c069; }
+  .sub { color: #98a2b3; font-size: 12.5px; }
+  #modes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+  #modes button {
+    background: rgba(20,26,38,0.9); color: #cfd6e2; border: 1px solid rgba(200,180,130,0.22);
+    padding: 6px 11px; border-radius: 5px; cursor: pointer; font-size: 12.5px; font-family: inherit;
+  }
+  #modes button:hover { border-color: rgba(232,192,105,0.6); color: #fff; }
+  #modes button.active { background: #e8c069; color: #12161f; border-color: #e8c069; font-weight: 600; }
+
+  #stage { position: relative; overflow: hidden; }
+  #c2d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #c3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  #hud {
+    position: absolute; left: 12px; bottom: 12px; z-index: 5; width: 268px;
+    background: rgba(14,18,28,0.88); border: 1px solid rgba(200,180,130,0.22);
+    border-radius: 7px; padding: 11px 12px; backdrop-filter: blur(3px);
+  }
+  #hud h2 { margin: 0 0 8px; font-size: 11px; letter-spacing: .12em; color: #e8c069; text-transform: uppercase; }
+  .row { display: flex; justify-content: space-between; gap: 10px; margin: 4px 0; font-size: 12.5px; }
+  .lbl { color: #98a2b3; }
+  .val { color: #e8e2d4; font-variant-numeric: tabular-nums; }
+  .val.good { color: #6fd18a; } .val.alarm { color: #e0674a; font-weight: 700; }
+  .track { height: 8px; background: rgba(255,255,255,0.10); border-radius: 4px; overflow: hidden; margin: 3px 0 8px; }
+  .track > i { display: block; height: 100%; border-radius: 4px; transition: width .08s linear, background .2s; }
+  #bar-light { background: #e8c069; }
+
+  #keys {
+    position: absolute; right: 12px; bottom: 12px; z-index: 5;
+    background: rgba(14,18,28,0.88); border: 1px solid rgba(200,180,130,0.22);
+    border-radius: 7px; padding: 11px 12px; font-size: 12.5px; max-width: 250px;
+  }
+  #keys h2 { margin: 0 0 7px; font-size: 11px; letter-spacing: .12em; color: #e8c069; text-transform: uppercase; }
+  kbd {
+    background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 3px; padding: 1px 5px; font: 11px ui-monospace, monospace;
+  }
+  label.chk { display: flex; align-items: center; gap: 7px; margin-top: 9px;
+    padding-top: 9px; border-top: 1px solid rgba(255,255,255,0.10); cursor: pointer; }
+  footer { padding: 8px 16px 10px; border-top: 1px solid rgba(200,180,130,0.14);
+    color: #98a2b3; font-size: 12.5px; min-height: 34px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Badger Blitz — Render Test</h1>
+  <div class="sub">One garden, one simulation, five ways of drawing it. Same lights, same walls, same cat.</div>
+  <div id="modes"></div>
+</header>
+
+<div id="stage">
+  <canvas id="c2d"></canvas>
+  <canvas id="c3d" style="display:none"></canvas>
+
+  <div id="hud">
+    <h2>Badger</h2>
+    <div class="row"><span class="lbl">Sneak</span></div>
+    <div class="track"><i id="bar-sneak" style="width:100%"></i></div>
+    <div class="row"><span class="lbl">Illumination</span></div>
+    <div class="track"><i id="bar-light" style="width:0%"></i></div>
+    <div class="row"><span class="lbl">Underfoot</span><span class="val" id="v-surface">grass</span></div>
+    <div class="row"><span class="lbl">Security light</span><span class="val" id="v-pir">idle</span></div>
+    <div class="row"><span class="lbl">Status</span><span class="val good" id="v-seen">unnoticed</span></div>
+    <div class="row"><span class="lbl">FPS</span><span class="val" id="v-fps">—</span></div>
+  </div>
+
+  <div id="keys">
+    <h2>Controls</h2>
+    <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</div>
+    <div style="margin-top:4px"><kbd>Shift</kbd> sneak — slower, much quieter</div>
+    <div style="margin-top:7px; color:#98a2b3">Try the gravel path on the right, then the loose fence panel and the cat flap.</div>
+    <label class="chk" id="sprite-row" style="display:none">
+      <input type="checkbox" id="spriteToggle"> Badger as 2D sprite card
+    </label>
+  </div>
+</div>
+
+<footer><span id="stagenote"></span></footer>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>
